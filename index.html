@@ -116,6 +116,16 @@
   .input-icon .ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 14px; }
   .input-icon input { padding-left: 38px; }
 
+  .city-pick { position: relative; }
+  .city-suggest { margin-top: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 11px; overflow-y: auto; max-height: 244px; display: none; }
+  .city-suggest.show { display: block; }
+  .city-suggest button { display: block; width: 100%; text-align: left; padding: 12px 14px; font-size: 14px; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition: all 0.13s ease; }
+  .city-suggest button:last-child { border-bottom: none; }
+  .city-suggest button.active, .city-suggest button:hover { background: var(--accent-soft); color: var(--text); }
+  .city-suggest button .match { color: var(--accent); font-weight: 600; }
+  .city-suggest .empty { padding: 13px 14px; font-size: 13px; color: var(--text-muted); }
+  #city-input.chosen { border-color: var(--accent); color: var(--text); }
+
   footer { padding: 14px 20px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
   .save { width: 100%; padding: 15px 0; border-radius: 13px; border: none; background: var(--accent); color: var(--accent-text); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
   .save:active { opacity: 0.85; }
@@ -165,11 +175,14 @@
           </div>
           <div class="field">
             <div class="field-label">Где ищем</div>
-            <select>
-              <option>Москва</option>
-              <option>Ташкент</option>
-              <option>Все города России</option>
-            </select>
+            <div class="city-pick">
+              <div class="input-icon">
+                <span class="ico">📍</span>
+                <input type="text" id="city-input" placeholder="Начни вводить город" autocomplete="off">
+              </div>
+              <div class="city-suggest" id="city-suggest"></div>
+            </div>
+            <div class="hint">Город России, где готов сниматься. Или «Любой город», если поедешь куда угодно</div>
           </div>
         </div></div>
       </div>
@@ -366,6 +379,104 @@
 
   // инициализация счётчиков
   document.querySelectorAll('.acc').forEach(updateCount);
+
+  // ---- «Где ищем»: поиск города с автодополнением ----
+  const RU_CITIES = [
+    'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
+    'Нижний Новгород', 'Челябинск', 'Красноярск', 'Самара', 'Уфа',
+    'Ростов-на-Дону', 'Краснодар', 'Омск', 'Воронеж', 'Пермь',
+    'Волгоград', 'Саратов', 'Тюмень', 'Тольятти', 'Ижевск',
+    'Барнаул', 'Ульяновск', 'Иркутск', 'Хабаровск', 'Махачкала',
+    'Владивосток', 'Ярославль', 'Оренбург', 'Томск', 'Кемерово',
+    'Новокузнецк', 'Рязань', 'Набережные Челны', 'Астрахань', 'Пенза',
+    'Киров', 'Липецк', 'Чебоксары', 'Калининград', 'Тула',
+    'Курск', 'Ставрополь', 'Сочи', 'Улан-Удэ', 'Тверь',
+    'Магнитогорск', 'Иваново', 'Брянск', 'Белгород', 'Сургут',
+    'Владимир', 'Архангельск', 'Чита', 'Калуга', 'Смоленск',
+    'Волжский', 'Якутск', 'Саранск', 'Череповец', 'Вологда',
+    'Орёл', 'Владикавказ', 'Грозный', 'Мурманск', 'Тамбов',
+    'Стерлитамак', 'Петрозаводск', 'Кострома', 'Нижневартовск', 'Новороссийск',
+    'Йошкар-Ола', 'Таганрог', 'Сыктывкар', 'Нальчик', 'Братск',
+    'Великий Новгород', 'Псков', 'Бийск', 'Симферополь', 'Севастополь',
+    'Южно-Сахалинск', 'Армавир', 'Рыбинск', 'Северодвинск', 'Абакан',
+    'Майкоп', 'Норильск', 'Благовещенск', 'Петропавловск-Камчатский', 'Находка',
+    'Салават', 'Уссурийск', 'Магадан', 'Кызыл', 'Элиста',
+    'Черкесск', 'Магас', 'Горно-Алтайск', 'Биробиджан', 'Нарьян-Мар',
+    'Салехард', 'Ханты-Мансийск', 'Анадырь'
+  ];
+  const ANY_CITY = 'Любой город';
+
+  const cityInput = document.getElementById('city-input');
+  const citySuggest = document.getElementById('city-suggest');
+  let cityActive = -1;
+
+  const cityNorm = s => s.toLowerCase().replace(/ё/g, 'е').trim();
+
+  function cityHighlight(name, q) {
+    const nq = cityNorm(q);
+    if (!nq) return name;
+    const i = cityNorm(name).indexOf(nq);
+    if (i < 0) return name;
+    return name.slice(0, i) + '<span class="match">' + name.slice(i, i + q.trim().length) + '</span>' + name.slice(i + q.trim().length);
+  }
+
+  function renderCities(q) {
+    const nq = cityNorm(q);
+    const matches = nq ? RU_CITIES.filter(c => cityNorm(c).includes(nq)) : RU_CITIES.slice();
+    // «Любой город» всегда первым пунктом
+    const list = [ANY_CITY, ...matches.slice(0, 60)];
+    citySuggest.innerHTML = '';
+    cityActive = -1;
+    list.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.city = c;
+      b.innerHTML = cityHighlight(c, q);
+      b.addEventListener('mousedown', e => { e.preventDefault(); chooseCity(c); });
+      citySuggest.appendChild(b);
+    });
+    if (nq && matches.length === 0) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'Город не найден';
+      citySuggest.appendChild(e);
+    }
+    citySuggest.classList.add('show');
+  }
+
+  function chooseCity(c) {
+    cityInput.value = c;
+    cityInput.dataset.value = c;
+    cityInput.classList.add('chosen');
+    hideCities();
+    if (tg) tg.HapticFeedback && tg.HapticFeedback.selectionChanged();
+  }
+
+  function hideCities() {
+    citySuggest.classList.remove('show');
+    cityActive = -1;
+  }
+
+  cityInput.addEventListener('focus', () => renderCities(cityInput.value));
+  cityInput.addEventListener('input', () => {
+    cityInput.classList.remove('chosen');
+    delete cityInput.dataset.value;
+    renderCities(cityInput.value);
+  });
+  cityInput.addEventListener('keydown', e => {
+    const btns = [...citySuggest.querySelectorAll('button')];
+    if (!citySuggest.classList.contains('show') || !btns.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); cityActive = Math.min(cityActive + 1, btns.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cityActive = Math.max(cityActive - 1, 0); }
+    else if (e.key === 'Enter') { if (cityActive >= 0) { e.preventDefault(); chooseCity(btns[cityActive].dataset.city); } return; }
+    else if (e.key === 'Escape') { hideCities(); return; }
+    else return;
+    btns.forEach((b, i) => b.classList.toggle('active', i === cityActive));
+    btns[cityActive].scrollIntoView({ block: 'nearest' });
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.city-pick')) hideCities();
+  });
 
   document.getElementById('save').addEventListener('click', () => {
     showToast('Сохранено');
