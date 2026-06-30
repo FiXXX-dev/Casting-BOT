@@ -165,7 +165,11 @@
           </div>
           <div class="field">
             <div class="field-label">Где ищем</div>
-            <div class="seg-pick" data-single><button>Ташкент</button><button class="on">Москва</button><button>Везде</button></div>
+            <select>
+              <option>Москва</option>
+              <option>Ташкент</option>
+              <option>Все города России</option>
+            </select>
           </div>
         </div></div>
       </div>
@@ -181,20 +185,6 @@
             <div class="field-label">Минимальная ставка</div>
             <input type="text" placeholder="Пусто — показывать всё">
             <div class="hint">Массовка 50–100 тыс · эпизод 250–800 тыс сум</div>
-          </div>
-        </div></div>
-      </div>
-
-      <div class="acc">
-        <div class="acc-head"><span class="acc-title">Что не присылать</span><span class="acc-meta"><span class="acc-count" data-count>2</span><span class="acc-chevron">▼</span></span></div>
-        <div class="acc-body"><div class="acc-inner">
-          <div class="skill-group">
-            <div class="skill-cat">Специфика проекта</div>
-            <div class="chips"><span class="chip exclude">топлес</span><span class="chip exclude">ночная смена</span><span class="chip exclude">ню</span></div>
-          </div>
-          <div class="skill-group">
-            <div class="skill-cat">Типажи мимо</div>
-            <div class="chips"><span class="chip exclude on">труп</span><span class="chip exclude on">зек</span><span class="chip exclude">охранник</span></div>
           </div>
         </div></div>
       </div>
@@ -367,13 +357,6 @@
         chip.classList.toggle('on');
         updateCount(chip.closest('.acc'));
       });
-    });
-  });
-
-  document.querySelectorAll('.chip.exclude').forEach(chip => {
-    chip.addEventListener('click', () => {
-      chip.classList.toggle('on');
-      updateCount(chip.closest('.acc'));
     });
   });
 
