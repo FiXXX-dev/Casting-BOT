@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Кастинг-профиль</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #0d0a16;
+    --surface: #161028;
+    --surface-2: #1d1535;
+    --text: #f0ecf7;
+    --text-secondary: #a99fc4;
+    --text-muted: #6b6088;
+    --border: #2a2142;
+    --accent: #8b5cf6;
+    --accent-soft: #2a1f4a;
+    --accent-text: #ffffff;
+    --danger: #f0709a;
+    --danger-soft: #2e1626;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); letter-spacing: -0.01em;
+  }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Верхний переключатель: Фильтры / Портфолио — крупный, с описанием активного */
+  .toplevel { padding: 18px 20px 0; }
+  .toplevel-row { display: flex; gap: 4px; padding: 4px; background: var(--surface); border-radius: 14px; }
+  .top-btn {
+    flex: 1; padding: 12px 0; font-size: 14px; font-weight: 600; background: transparent;
+    border: none; color: var(--text-muted); border-radius: 10px; cursor: pointer; transition: all 0.18s ease;
+  }
+  .top-btn.active { background: var(--accent); color: var(--accent-text); }
+  .toplevel-desc { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; padding: 0 2px; }
+
+  /* Охват (только в фильтрах) */
+  .reach { padding: 14px 20px 0; }
+  .reach-row { display: flex; gap: 8px; }
+  .reach-btn {
+    flex: 1; padding: 12px 0; font-size: 13px; font-weight: 500; border-radius: 11px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  .reach-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+  .content { flex: 1; overflow-y: auto; padding: 16px 20px 18px; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .acc { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+  .acc-head { display: flex; align-items: center; justify-content: space-between; padding: 16px; cursor: pointer; user-select: none; }
+  .acc-title { font-size: 15px; font-weight: 600; }
+  .acc-meta { display: flex; align-items: center; gap: 10px; }
+  .acc-count { font-size: 12px; color: var(--accent); }
+  .acc-chevron { color: var(--text-muted); transition: transform 0.2s ease; font-size: 13px; }
+  .acc.open .acc-chevron { transform: rotate(180deg); }
+  .acc-body { max-height: 0; overflow: hidden; transition: max-height 0.28s ease; }
+  .acc.open .acc-body { max-height: 1600px; }
+  .acc-inner { padding: 0 16px 16px; }
+
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; }
+  .hint { font-size: 12px; color: var(--text-muted); margin-top: 7px; line-height: 1.5; }
+
+  input[type="text"], input[type="number"], input[type="email"], input[type="tel"], select {
+    width: 100%; padding: 12px 13px; font-size: 14px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 11px;
+    outline: none; transition: border-color 0.15s ease;
+  }
+  input::placeholder { color: var(--text-muted); }
+  input:focus, select:focus { border-color: var(--accent); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .age-range { display: flex; align-items: center; gap: 12px; }
+  .age-range input { text-align: center; }
+  .age-dash { color: var(--text-muted); font-size: 18px; }
+
+  .seg-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg-pick button { flex: 1; min-width: 80px; padding: 12px 14px; font-size: 14px; border-radius: 11px; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); cursor: pointer; transition: all 0.15s ease; }
+  .seg-pick button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+  .list-pick button { display: block; width: 100%; text-align: left; padding: 13px 14px; font-size: 14px; border-radius: 11px; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); cursor: pointer; margin-bottom: 8px; transition: all 0.15s ease; }
+  .list-pick button:last-child { margin-bottom: 0; }
+  .list-pick button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+  .switch-row { display: flex; align-items: center; justify-content: space-between; }
+  .switch { width: 44px; height: 26px; border-radius: 13px; background: var(--border); position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.18s ease; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-secondary); transition: all 0.18s ease; }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { left: 21px; background: #fff; }
+
+  .cat { display: flex; align-items: center; gap: 12px; padding: 13px; background: var(--bg); border: 1px solid var(--border); border-radius: 11px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s ease; }
+  .cat:last-child { margin-bottom: 0; }
+  .cat.on { background: var(--accent-soft); border-color: var(--accent); }
+  .cat-glyph { font-size: 18px; width: 22px; text-align: center; }
+  .cat-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .mini-switch { width: 36px; height: 21px; border-radius: 11px; background: var(--border); position: relative; flex-shrink: 0; transition: background 0.18s ease; }
+  .mini-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: var(--text-secondary); transition: all 0.18s ease; }
+  .cat.on .mini-switch { background: var(--accent); }
+  .cat.on .mini-switch::after { left: 18px; background: #fff; }
+
+  .skill-group { margin-bottom: 16px; }
+  .skill-group:last-child { margin-bottom: 0; }
+  .skill-cat { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 9px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg); cursor: pointer; transition: all 0.15s ease; }
+  .chip.on { background: var(--accent-soft); color: var(--text); border-color: var(--accent); }
+  .chip.exclude.on { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+  .input-icon { position: relative; }
+  .input-icon .ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 14px; }
+  .input-icon input { padding-left: 38px; }
+
+  footer { padding: 14px 20px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+  .save { width: 100%; padding: 15px 0; border-radius: 13px; border: none; background: var(--accent); color: var(--accent-text); font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s ease; }
+  .save:active { opacity: 0.85; }
+
+  .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(16px); background: var(--surface-2); color: var(--text); padding: 12px 20px; border-radius: 12px; font-size: 13px; opacity: 0; transition: all 0.25s ease; z-index: 100; pointer-events: none; border: 1px solid var(--accent); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="toplevel">
+    <div class="toplevel-row">
+      <button class="top-btn active" data-top="filters">Что ищу</button>
+      <button class="top-btn" data-top="portfolio">Моя анкета</button>
+    </div>
+    <div class="toplevel-desc" id="top-desc">Настрой, какие кастинги тебе присылать</div>
+  </div>
+
+  <div class="reach" id="reach-block">
+    <div class="reach-row">
+      <button class="reach-btn active" data-reach>Шире охват</button>
+      <button class="reach-btn" data-reach>Точное совпадение</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ============ ЧТО ИЩУ ============ -->
+    <div class="section active" id="section-filters">
+
+      <div class="acc open">
+        <div class="acc-head"><span class="acc-title">Кто ты в кадре</span><span class="acc-meta"><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="field">
+            <div class="field-label">Пол</div>
+            <div class="seg-pick" data-single><button class="on">Мужской</button><button>Женский</button></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Игровой возраст</div>
+            <div class="age-range">
+              <input type="number" placeholder="17" min="1" max="99">
+              <span class="age-dash">—</span>
+              <input type="number" placeholder="23" min="1" max="99">
+            </div>
+            <div class="hint">Возраст, на который ты выглядишь в кадре — не обязательно реальный</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Где ищем</div>
+            <div class="seg-pick" data-single><button>Ташкент</button><button class="on">Москва</button><button>Везде</button></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="acc">
+        <div class="acc-head"><span class="acc-title">Типы проектов</span><span class="acc-meta"><span class="acc-count" data-count>2</span><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="cat on" data-cat><span class="cat-glyph">🎬</span><span class="cat-name">Кино и сериалы</span><span class="mini-switch"></span></div>
+          <div class="cat on" data-cat><span class="cat-glyph">📺</span><span class="cat-name">Реклама</span><span class="mini-switch"></span></div>
+          <div class="cat" data-cat><span class="cat-glyph">📸</span><span class="cat-name">Модельные проекты</span><span class="mini-switch"></span></div>
+          <div class="cat" data-cat><span class="cat-glyph">🎙️</span><span class="cat-name">Озвучка, дубляж</span><span class="mini-switch"></span></div>
+          <div class="field" style="margin-top:14px">
+            <div class="field-label">Минимальная ставка</div>
+            <input type="text" placeholder="Пусто — показывать всё">
+            <div class="hint">Массовка 50–100 тыс · эпизод 250–800 тыс сум</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="acc">
+        <div class="acc-head"><span class="acc-title">Что не присылать</span><span class="acc-meta"><span class="acc-count" data-count>2</span><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="skill-group">
+            <div class="skill-cat">Специфика проекта</div>
+            <div class="chips"><span class="chip exclude">топлес</span><span class="chip exclude">ночная смена</span><span class="chip exclude">ню</span></div>
+          </div>
+          <div class="skill-group">
+            <div class="skill-cat">Типажи мимо</div>
+            <div class="chips"><span class="chip exclude on">труп</span><span class="chip exclude on">зек</span><span class="chip exclude">охранник</span></div>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+
+    <!-- ============ МОЯ АНКЕТА ============ -->
+    <div class="section" id="section-portfolio">
+
+      <div class="acc open">
+        <div class="acc-head"><span class="acc-title">О себе</span><span class="acc-meta"><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="field"><div class="field-label">Имя и фамилия</div><input type="text" placeholder="Иван Петров"></div>
+          <div class="field"><div class="field-label">Возраст</div><input type="number" placeholder="19"></div>
+          <div class="field"><div class="field-label">Город</div><select><option>Выберите город</option><option>Ташкент</option><option>Москва</option></select></div>
+          <div class="field switch-row">
+            <div class="field-label" style="margin:0">Готов к командировкам</div>
+            <div class="switch on" data-switch></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Как оформлен</div>
+            <div class="seg-pick" data-single><button class="on">Самозанятый</button><button>ИП</button><button>Физлицо</button></div>
+          </div>
+          <div class="field"><div class="field-label">Цвет глаз</div><select><option>Выберите</option><option>Карие</option><option>Голубые</option><option>Зелёные</option><option>Серые</option></select></div>
+          <div class="field">
+            <div class="field-label">Особые приметы</div>
+            <div class="chips" data-multi><span class="chip">Татуировки</span><span class="chip">Пирсинг</span><span class="chip">Шрамы</span><span class="chip">Веснушки</span><span class="chip">Брекеты</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="acc">
+        <div class="acc-head"><span class="acc-title">Опыт и обучение</span><span class="acc-meta"><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="field">
+            <div class="field-label">Снимался раньше</div>
+            <div class="seg-pick" data-single><button class="on">Да</button><button>Пока нет</button></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Актёрское образование</div>
+            <div class="list-pick" data-single-list>
+              <button>Профильный ВУЗ</button>
+              <button class="on">Курсы</button>
+              <button>ВУЗ и курсы</button>
+              <button>Без образования</button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="acc">
+        <div class="acc-head"><span class="acc-title">Что умею</span><span class="acc-meta"><span class="acc-count" data-count>4</span><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="skill-group">
+            <div class="skill-cat">🤸 Спорт</div>
+            <div class="chips" data-multi><span class="chip">Бег</span><span class="chip">Плавание</span><span class="chip">Бокс</span><span class="chip on">Верховая езда</span><span class="chip">Йога</span><span class="chip">Гимнастика</span></div>
+          </div>
+          <div class="skill-group">
+            <div class="skill-cat">💃 Танцы</div>
+            <div class="chips" data-multi><span class="chip">Бальные</span><span class="chip on">Современные</span><span class="chip">Хип-хоп</span><span class="chip">Балет</span><span class="chip">Степ</span></div>
+          </div>
+          <div class="skill-group">
+            <div class="skill-cat">🎤 Вокал</div>
+            <div class="chips" data-multi><span class="chip">Эстрадный</span><span class="chip">Академический</span><span class="chip">Рэп</span><span class="chip">Рок</span></div>
+          </div>
+          <div class="skill-group">
+            <div class="skill-cat">🎸 Инструменты</div>
+            <div class="chips" data-multi><span class="chip on">Гитара</span><span class="chip">Фортепиано</span><span class="chip">Скрипка</span><span class="chip">Барабаны</span></div>
+          </div>
+          <div class="skill-group">
+            <div class="skill-cat">🌐 Языки</div>
+            <div class="chips" data-multi><span class="chip on">Английский</span><span class="chip">Немецкий</span><span class="chip">Французский</span><span class="chip on">Узбекский</span><span class="chip">Китайский</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="acc">
+        <div class="acc-head"><span class="acc-title">Связь и материалы</span><span class="acc-meta"><span class="acc-chevron">▼</span></span></div>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="field"><div class="field-label">Портфолио</div><div class="input-icon"><span class="ico">🔗</span><input type="text" placeholder="ссылка на профиль"></div></div>
+          <div class="field"><div class="field-label">Видеовизитка</div><div class="input-icon"><span class="ico">🎥</span><input type="text" placeholder="YouTube, Vimeo"></div></div>
+          <div class="field"><div class="field-label">Телефон</div><div class="input-icon"><span class="ico">📞</span><input type="tel" placeholder="+998 90 123 45 67"></div></div>
+          <div class="field"><div class="field-label">Telegram</div><div class="input-icon"><span class="ico">✈️</span><input type="text" placeholder="@username"></div></div>
+          <div class="field"><div class="field-label">Email</div><div class="input-icon"><span class="ico">✉️</span><input type="email" placeholder="mail@example.com"></div></div>
+        </div></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <footer>
+    <button class="save" id="save">Сохранить</button>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast">Сохранено</div>
+
+<script>
+  const tg = window.Telegram ? window.Telegram.WebApp : null;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  const descriptions = {
+    filters: 'Настрой, какие кастинги тебе присылать',
+    portfolio: 'Заполни один раз — будем подставлять в отклики'
+  };
+
+  document.querySelectorAll('.top-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.top-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      const top = btn.dataset.top;
+      document.getElementById('section-' + top).classList.add('active');
+      document.getElementById('top-desc').textContent = descriptions[top];
+      document.getElementById('reach-block').style.display = top === 'filters' ? 'block' : 'none';
+    });
+  });
+
+  document.querySelectorAll('[data-reach]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-reach]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.acc-head').forEach(head => {
+    head.addEventListener('click', () => head.closest('.acc').classList.toggle('open'));
+  });
+
+  // обновление счётчика выбранного в заголовке аккордеона
+  function updateCount(acc) {
+    const counter = acc.querySelector('[data-count]');
+    if (!counter) return;
+    const on = acc.querySelectorAll('.cat.on, .chip.on').length;
+    counter.textContent = on;
+    counter.style.display = on > 0 ? 'inline' : 'none';
+  }
+
+  document.querySelectorAll('[data-cat]').forEach(cat => {
+    cat.addEventListener('click', () => {
+      cat.classList.toggle('on');
+      updateCount(cat.closest('.acc'));
+      if (tg) tg.HapticFeedback && tg.HapticFeedback.selectionChanged();
+    });
+  });
+
+  document.querySelectorAll('[data-single]').forEach(group => {
+    group.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-single-list]').forEach(group => {
+    group.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-multi]').forEach(group => {
+    group.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('on');
+        updateCount(chip.closest('.acc'));
+      });
+    });
+  });
+
+  document.querySelectorAll('.chip.exclude').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('on');
+      updateCount(chip.closest('.acc'));
+    });
+  });
+
+  document.querySelectorAll('[data-switch]').forEach(sw => {
+    sw.addEventListener('click', () => sw.classList.toggle('on'));
+  });
+
+  // инициализация счётчиков
+  document.querySelectorAll('.acc').forEach(updateCount);
+
+  document.getElementById('save').addEventListener('click', () => {
+    showToast('Сохранено');
+    if (tg) tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
+    // tg.sendData(JSON.stringify(profile))
+  });
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+</script>
+</body>
+</html>
